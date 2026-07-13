@@ -1,27 +1,15 @@
-import os
-import json
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
-from groq import Groq  # <-- Cambiado a Groq
-from dotenv import load_dotenv
+from groq import Client
+import json
+import os
 
-load_dotenv()
+# Configuración inicial
+app = FastAPI()
+client = Client(api_key=os.environ.get("GROQ_API_KEY"))
 
-app = FastAPI(title="LocalSEO AI Agent")
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-# Inicializar el cliente de Groq con su modelo gratuito
-client = Groq(api_key=os.getenv("GROQ_API_KEY"))
-
+# Modelo de datos para la solicitud
 class SEORequest(BaseModel):
     business_name: str
     business_type: str
@@ -30,38 +18,42 @@ class SEORequest(BaseModel):
 @app.post("/api/generate-seo")
 async def generate_seo(data: SEORequest):
     try:
+        # Prompt estructurado para forzar JSON estricto
         prompt = f"""
-        Eres un consultor experto en SEO Local y Copywriting. Genera una micro-estrategia optimizada para el siguiente negocio:
-        Nombre del Negocio: {data.business_name}
-        Tipo de Negocio: {data.business_type}
-        Ciudad/Ubicación: {data.city}
+        Eres un consultor experto en SEO Local y ventas. Genera una estrategia para:
+        Negocio: {data.business_name}
+        Tipo: {data.business_type}
+        Ubicación: {data.city}
 
-        Debes responder EXCLUSIVAMENTE con un objeto JSON estricto (sin bloques de código markdown, sin texto antes ni después) con la siguiente estructura exacta:
+        Responde EXCLUSIVAMENTE con un objeto JSON (sin formato markdown):
         {{
-            "keywords": ["Palabra clave local 1", "Palabra clave local 2", "Palabra clave local 3"],
+            "keywords": ["KW1", "KW2", "KW3"],
             "google_posts": [
-                {{"titulo": "Post 1: Lanzamiento / Promoción", "contenido": "Texto optimizado para Google Business Profile con emojis..."}},
-                {{"titulo": "Post 2: Autoridad / Confianza", "contenido": "Texto persuasivo enfocado en calidad..."}}
-            ]
+                {{"titulo": "Título 1", "contenido": "Contenido 1"}},
+                {{"titulo": "Título 2", "contenido": "Contenido 2"}}
+            ],
+            "sales_script": "Mensaje de prospección persuasivo, humano y corto para {data.business_name} en {data.city}."
         }}
         """
 
-        # Usamos el modelo llama-3.3-70b que es excelente y gratis en Groq
         response = client.chat.completions.create(
             model="llama-3.3-70b-versatile",
             messages=[
-                {"role": "system", "content": "Eres un servicio API automatizado que solo devuelve JSON estricto sin formato markdown."},
+                {"role": "system", "content": "Eres un servicio API que solo devuelve JSON estricto."},
                 {"role": "user", "content": prompt}
             ],
             temperature=0.7,
             response_format={"type": "json_object"}
         )
 
+        # Convertir respuesta a diccionario
         result_json = json.loads(response.choices[0].message.content)
         return result_json
 
     except Exception as e:
-        print("\n❌ ERROR DETECTADO EN GROQ:", str(e), "\n")
-        raise HTTPException(status_code=500, detail=str(e))
+        print(f"Error en backend: {e}")
+        return {"error": str(e)}
 
+# Para servir los archivos estáticos (index.html)
+from fastapi.staticfiles import StaticFiles
 app.mount("/", StaticFiles(directory="static", html=True), name="static")
