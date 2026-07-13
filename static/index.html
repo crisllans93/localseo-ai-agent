@@ -16,6 +16,12 @@
         <!-- Formulario -->
         <div class="bg-slate-800 p-6 rounded-xl border border-slate-700 shadow-xl">
             <form id="seoForm" class="space-y-4">
+                <!-- NUEVO: Campo de Correo -->
+                <div>
+                    <label class="block text-sm font-medium mb-1">Tu Correo Electrónico</label>
+                    <input type="email" id="email" required class="w-full bg-slate-900 border border-slate-600 rounded-lg p-2 focus:ring-2 focus:ring-indigo-500 outline-none" placeholder="correo@ejemplo.com">
+                </div>
+                
                 <div>
                     <label class="block text-sm font-medium mb-1">Nombre del Negocio</label>
                     <input type="text" id="business_name" required class="w-full bg-slate-900 border border-slate-600 rounded-lg p-2 focus:ring-2 focus:ring-indigo-500 outline-none" placeholder="Ej. Pizzeria Don Tomas">
@@ -38,17 +44,15 @@
 
         <!-- Resultados -->
         <div id="results" class="hidden mt-8 space-y-6">
+            <!-- ... (se mantiene igual) ... -->
             <div class="bg-slate-800 p-6 rounded-xl border border-slate-700">
                 <h2 class="text-lg font-bold text-cyan-400 mb-3">✨ Palabras Clave</h2>
                 <div id="keywordsList" class="flex flex-wrap gap-2"></div>
             </div>
-
             <div class="bg-slate-800 p-6 rounded-xl border border-slate-700">
                 <h2 class="text-lg font-bold text-indigo-400 mb-4">🚀 Publicaciones para Google</h2>
                 <div id="postsContainer" class="space-y-4"></div>
             </div>
-
-            <!-- Aquí se inyectará el script de prospección -->
             <div id="scriptContainer" class="bg-emerald-900/20 border border-emerald-500/50 p-6 rounded-xl"></div>
         </div>
     </div>
@@ -60,9 +64,10 @@
             const resultsDiv = document.getElementById('results');
             
             btn.disabled = true;
-            btn.innerText = "Generando estrategia...";
+            btn.innerText = "Validando y generando...";
             
             const payload = {
+                email: document.getElementById('email').value, // Agregado
                 business_name: document.getElementById('business_name').value,
                 business_type: document.getElementById('business_type').value,
                 city: document.getElementById('city').value
@@ -75,14 +80,20 @@
                     body: JSON.stringify(payload)
                 });
 
+                if (response.status === 403) {
+                    alert("⚠️ Has superado tus 3 intentos gratuitos. Contáctame para acceso ilimitado.");
+                    btn.disabled = false;
+                    btn.innerText = "Generar Estrategia SEO Local";
+                    return;
+                }
+
                 if (!response.ok) throw new Error("Error en servidor");
                 const data = await response.json();
 
-                // Keywords
+                // Lógica de visualización (igual que antes)
                 const kwList = document.getElementById('keywordsList');
                 kwList.innerHTML = data.keywords.map(kw => `<span class="bg-slate-900 px-3 py-1 rounded-full text-sm border border-slate-600">${kw}</span>`).join('');
 
-                // Posts
                 const postsCont = document.getElementById('postsContainer');
                 postsCont.innerHTML = data.google_posts.map(post => `
                     <div class="bg-slate-900 p-4 rounded-lg border border-slate-700">
@@ -91,7 +102,6 @@
                     </div>
                 `).join('');
 
-                // Script de Ventas
                 document.getElementById('scriptContainer').innerHTML = `
                     <h2 class="text-lg font-bold text-emerald-400 mb-2">📩 Script de Prospección</h2>
                     <p class="text-sm text-slate-200 mb-4">${data.sales_script}</p>
@@ -103,7 +113,7 @@
                 resultsDiv.classList.remove('hidden');
             } catch (err) {
                 console.error(err);
-                alert("Hubo un error al generar. Revisa la consola F12.");
+                alert("Error de conexión. Intenta de nuevo.");
             } finally {
                 btn.disabled = false;
                 btn.innerText = "Generar Estrategia SEO Local";
